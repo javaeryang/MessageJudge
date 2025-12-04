@@ -1,44 +1,33 @@
-name: Build iOS App (No Signing)
+name: Build Unsigned IPA
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ]          # 已改为 main
+  pull_request:
+    branches: [ main]       # PR 时也触发，便于预览
 
 jobs:
-  build:
-    runs-on: macos-latest
+  build-ipa:
+    runs-on: macos-14           # macos-14 预装 Xcode 15.4+，更稳定（可选 macos-latest）
 
     steps:
-    - name: Checkout repository
+    - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        submodules: recursive     # 如果有子模块一并拉取
 
-    - name: Select Xcode version
+    - name: Select Xcode 15 (or latest stable)
       uses: maxim-lobanov/setup-xcode@v1
       with:
-        xcode-version: '15.0'  # 可调整为最新版本，如 'latest'
+        xcode-version: '15.4'     # 建议固定一个稳定版本，也可改成 latest
 
-    - name: Build and Archive
+    - name: Install CocoaPods dependencies (if Podfile exists)
       run: |
-        xcodebuild \
-          -project MessageJudge.xcodeproj \
-          -scheme MessageJudge \  # 假设方案名为 MessageJudge；如果有多个目标，可调整
-          -configuration Release \
-          -sdk iphoneos \
-          -destination 'generic/platform=iOS' \
-          clean archive \
-          -archivePath ./build/MessageJudge.xcarchive
+        if [ -f Podfile ]; then
+          pod install --repo-update
+        fi
 
-    - name: Export IPA (Development Export, No Signing)
-      run: |
-        mkdir -p Payload
-        xcodebuild \
-          -exportArchive \
-          -archivePath ./build/MessageJudge.xcarchive \
-          -exportOptionsPlist exportOptions.plist \
-          -exportPath ./build/MessageJudge.ipa
-
-    # 创建 exportOptions.plist 文件（无签名选项）
-    - name: Create Export Options Plist
+    - name: Create exportOptions.plist (no signing)
       run: |
         cat > exportOptions.plist << EOF
         <?xml version="1.0" encoding="UTF-8"?>
@@ -46,9 +35,7 @@ jobs:
         <plist version="1.0">
         <dict>
           <key>method</key>
-          <string>development</string>  <!-- 或 ad-hoc，如果适用；无签名时使用 development -->
-          <key>teamID</key>
-          <string></string>  <!-- 留空，无签名 -->
+          <string>app-store</string>      <!-- 用 app-store 方法可以跳过签名 -->
           <key>compileBitcode</key>
           <false/>
           <key>uploadBitcode</key>
@@ -59,9 +46,31 @@ jobs:
         </plist>
         EOF
 
-    - name: Upload IPA Artifact
+    - name: Build & Archive
+      run: |
+        xcodebuild -project MessageJudge.xcodeproj \
+                   -scheme MessageJudge \
+                   -configuration Release \
+                   -sdk iphoneos \
+                   -archivePath ./build/MessageJudge.xcarchive \
+                   clean archive
+
+    - name: Export unsigned IPA
+      run: |
+        xcodebuild -exportArchive \
+                   -archivePath ./build/MessageJudge.xcarchive \
+                   -exportOptionsPlist exportOptions.plist \
+                   -exportPath ./build \
+                   -allowProvisioningUpdates   # 防止偶尔的 profile 报错
+
+        cd build
+        mkdir Payload
+        cp -r MessageJudge.app Payload/
+        zip -r9 MessageJudge-unsigned.ipa Payload
+
+    - name: Upload IPA as artifact
       uses: actions/upload-artifact@v4
       with:
         name: MessageJudge-unsigned.ipa
-        path: ./build/MessageJudge.ipa
-        retention-days: 30  # 保留 30 天，可调整
+        path: build/MessageJudge-unsigned.ipa
+        retention-days: 30

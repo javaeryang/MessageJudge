@@ -1,9 +1,9 @@
 name: Build Unsigned IPA
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
-  workflow_dispatch:
 
 jobs:
   build:
@@ -13,21 +13,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Ruby and CocoaPods
+      - name: Install CocoaPods
         run: |
           sudo gem install cocoapods
-          pod --version
-
-      - name: Install Pods
-        working-directory: ./MessageJudge
-        run: pod install --repo-update
+          cd MessageJudge
+          pod install --repo-update
 
       - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+        run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Build Xcode project
-        working-directory: ./MessageJudge
+      - name: Build Xcode project (skip signing)
         run: |
+          cd MessageJudge
           xcodebuild \
             -workspace MessageJudge.xcworkspace \
             -scheme MessageJudge \
@@ -42,8 +39,8 @@ jobs:
             ONLY_ACTIVE_ARCH=NO
 
       - name: Create IPA
-        working-directory: ./MessageJudge
         run: |
+          cd MessageJudge
           mkdir -p Payload
           cp -R build/MessageJudge.xcarchive/Products/Applications/MessageJudge.app Payload/
           zip -r MessageJudge-unsigned.ipa Payload
@@ -52,4 +49,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MessageJudge-unsigned
-          path: ./MessageJudge/MessageJudge-unsigned.ipa
+          path: MessageJudge/MessageJudge-unsigned.ipa

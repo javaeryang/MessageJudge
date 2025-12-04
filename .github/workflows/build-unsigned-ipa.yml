@@ -19,7 +19,7 @@ jobs:
       - name: Build Xcode project (skip signing)
         run: |
           xcodebuild \
-            -project MessageJudge/MessageJudge.xcodeproj \
+            -project MessageJudge.xcodeproj \
             -scheme MessageJudge \
             -configuration Release \
             -archivePath build/MessageJudge.xcarchive \

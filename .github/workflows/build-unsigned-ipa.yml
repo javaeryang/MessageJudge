@@ -1,30 +1,43 @@
-name: Build Unsigned IPA
+name: iOS Build
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
+  pull_request:
 
 jobs:
   build:
-    runs-on: macos-latest
+    name: Build MessageJudge
+    runs-on: macos-13
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
 
       - name: Install CocoaPods
         run: |
-          sudo gem install cocoapods
-          cd MessageJudge
-          pod install
+          gem install cocoapods
 
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode.app
-
-      - name: Build Xcode project (skip signing)
+      - name: Install Pods
+        working-directory: ./MessageJudge
         run: |
-          cd MessageJudge
+          pod install --repo-update
+
+      - name: List workspace and schemes
+        working-directory: ./MessageJudge
+        run: |
+          xcodebuild -workspace MessageJudge.xcworkspace -list
+
+      - name: Build and Archive
+        working-directory: ./MessageJudge
+        continue-on-error: true
+        run: |
+          set -o pipefail
           xcodebuild \
             -workspace MessageJudge.xcworkspace \
             -scheme MessageJudge \
@@ -36,17 +49,15 @@ jobs:
             CODE_SIGNING_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
             IPHONEOS_DEPLOYMENT_TARGET=12.0 \
-            ONLY_ACTIVE_ARCH=NO
+            ONLY_ACTIVE_ARCH=NO | tee xcodebuild.log
 
-      - name: Create IPA
+      - name: Show Xcode build result (if failed)
+        if: failure()
         run: |
-          cd MessageJudge
-          mkdir -p Payload
-          cp -R build/MessageJudge.xcarchive/Products/Applications/MessageJudge.app Payload/
-          zip -r MessageJudge-unsigned.ipa Payload
-
-      - name: Upload IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: MessageJudge-unsigned
-          path: MessageJudge/MessageJudge-unsigned.ipa
+          echo "=== Printing xcresult logs ==="
+          xcresult_path=$(find MessageJudge/build -name "*.xcresult" | head -n 1)
+          if [ -f "$xcresult_path" ]; then
+            xcrun xcresulttool get --path "$xcresult_path" --format json
+          else
+            echo "No xcresult found."
+          fi

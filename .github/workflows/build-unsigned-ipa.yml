@@ -10,21 +10,17 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      # 1️⃣ 拉取代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ 安装 CocoaPods（如果你用了 Pod）
+      - name: Set Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app
+
       - name: Install CocoaPods
         run: |
           sudo gem install cocoapods
-          pod install --repo-update || echo "No Podfile found, skipping"
+          pod install --repo-update
 
-      # 3️⃣ 选择 Xcode 版本
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode.app
-
-      # 4️⃣ 构建 Xcode 项目（跳过签名）
       - name: Build Xcode project (skip signing)
         run: |
           xcodebuild \
@@ -36,17 +32,16 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_IDENTITY="" \
-            PROVISIONING_PROFILE_SPECIFIER=""
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            IPHONEOS_DEPLOYMENT_TARGET=12.0
 
-      # 5️⃣ 打包成 IPA
-      - name: Create IPA
+      - name: Create unsigned IPA
         run: |
           mkdir -p Payload
           cp -R build/MessageJudge.xcarchive/Products/Applications/MessageJudge.app Payload/
           zip -r MessageJudge-unsigned.ipa Payload
 
-      # 6️⃣ 上传 IPA 作为 artifact
-      - name: Upload IPA
+      - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
           name: MessageJudge-unsigned

@@ -4,30 +4,48 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
+  pull_request:
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      # 1️⃣ Checkout 仓库
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      # 2️⃣ 安装 RubyGems 中的 CocoaPods
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods
+    - name: Set up Ruby (for CocoaPods)
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: 3.2
 
-      # 3️⃣ 进入 MessageJudge 目录并安装 Pod
-      - name: Install Pods
-        working-directory: ./MessageJudge
-        run: pod install --repo-update
+    - name: Install CocoaPods
+      run: |
+        sudo gem install cocoapods
 
-      # 4️⃣ 构建并 Archive
-      - name: Build and Archive
-        working-directory: ./MessageJudge
-        run: |
+    - name: Prepare workspace if needed
+      run: |
+        cd MessageJudge
+        if [ -f "Podfile" ]; then
+          pod install
+        fi
+
+    - name: Determine build target
+      run: |
+        cd MessageJudge
+        if [ -f "MessageJudge.xcworkspace" ]; then
+          echo "BUILD_TYPE=workspace" >> $GITHUB_ENV
+        elif [ -f "MessageJudge.xcodeproj" ]; then
+          echo "BUILD_TYPE=project" >> $GITHUB_ENV
+        else
+          echo "Error: No Xcode project or workspace found!" >&2
+          exit 1
+        fi
+
+    - name: Build iOS Archive
+      run: |
+        cd MessageJudge
+        if [ "$BUILD_TYPE" = "workspace" ]; then
           xcodebuild \
             -workspace MessageJudge.xcworkspace \
             -scheme MessageJudge \
@@ -40,20 +58,30 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER="" \
             IPHONEOS_DEPLOYMENT_TARGET=12.0 \
             ONLY_ACTIVE_ARCH=NO
-
-      # 5️⃣ 导出未签名 IPA
-      - name: Export IPA
-        working-directory: ./MessageJudge
-        run: |
-          xcodebuild -exportArchive \
+        else
+          xcodebuild \
+            -project MessageJudge.xcodeproj \
+            -scheme MessageJudge \
+            -configuration Release \
             -archivePath build/MessageJudge.xcarchive \
-            -exportPath build/MessageJudge \
-            -exportOptionsPlist ExportOptions.plist || true
+            clean archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            IPHONEOS_DEPLOYMENT_TARGET=12.0 \
+            ONLY_ACTIVE_ARCH=NO
 
-            # 6️⃣ 上传构建产物
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: MessageJudge-IPA
-          path: ./MessageJudge/build/MessageJudge/*.ipa
-
+    - name: Export IPA (optional)
+      run: |
+        cd MessageJudge
+        xcodebuild -exportArchive \
+          -archivePath build/MessageJudge.xcarchive \
+          -exportPath build/MessageJudge \
+          -exportOptionsPlist ExportOptions.plist || echo "Skipping IPA export"
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: MessageJudge-iOS
+        path: MessageJudge/build/

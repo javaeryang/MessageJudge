@@ -7,20 +7,20 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-15
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select latest Xcode
+      - name: Select Xcode 16 (default)
         run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
       - name: Install CocoaPods if needed
         run: |
           if [ -f "Podfile" ]; then
             sudo gem install cocoapods
-            pod install
+            pod install --silent
           fi
 
       - name: Clean
@@ -53,10 +53,10 @@ jobs:
             <string>manual</string>
             <key>compileBitcode</key>
             <false/>
-            <key>provisioningProfiles</key>
-            <dict/>
             <key>signingCertificate</key>
             <string></string>
+            <key>provisioningProfiles</key>
+            <dict/>
           </dict>
           </plist>
           EOF
@@ -67,8 +67,8 @@ jobs:
             -exportPath build/ \
             -allowProvisioningUpdates || true
 
-      - name: Upload IPA
-        uses: actions/upload-artifact@v3
+      - name: Upload IPA (v4)
+        uses: actions/upload-artifact@v4
         with:
-          name: MessageJudge-unsigned.ipa
+          name: MessageJudge-unsigned
           path: build/*.ipa

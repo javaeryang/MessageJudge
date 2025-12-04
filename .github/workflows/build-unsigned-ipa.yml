@@ -2,42 +2,32 @@ name: iOS Build
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build MessageJudge
-    runs-on: macos-13
+    runs-on: macos-latest
 
     steps:
+      # 1️⃣ Checkout 仓库
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-
+      # 2️⃣ 安装 RubyGems 中的 CocoaPods
       - name: Install CocoaPods
-        run: |
-          gem install cocoapods
+        run: sudo gem install cocoapods
 
+      # 3️⃣ 进入 MessageJudge 目录并安装 Pod
       - name: Install Pods
         working-directory: ./MessageJudge
-        run: |
-          pod install --repo-update
+        run: pod install --repo-update
 
-      - name: List workspace and schemes
-        working-directory: ./MessageJudge
-        run: |
-          xcodebuild -workspace MessageJudge.xcworkspace -list
-
+      # 4️⃣ 构建并 Archive
       - name: Build and Archive
         working-directory: ./MessageJudge
-        continue-on-error: true
         run: |
-          set -o pipefail
           xcodebuild \
             -workspace MessageJudge.xcworkspace \
             -scheme MessageJudge \
@@ -49,15 +39,20 @@ jobs:
             CODE_SIGNING_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
             IPHONEOS_DEPLOYMENT_TARGET=12.0 \
-            ONLY_ACTIVE_ARCH=NO | tee xcodebuild.log
+            ONLY_ACTIVE_ARCH=NO
 
-      - name: Show Xcode build result (if failed)
-        if: failure()
+      # 5️⃣ 导出未签名 IPA
+      - name: Export IPA
+        working-directory: ./MessageJudge
         run: |
-          echo "=== Printing xcresult logs ==="
-          xcresult_path=$(find MessageJudge/build -name "*.xcresult" | head -n 1)
-          if [ -f "$xcresult_path" ]; then
-            xcrun xcresulttool get --path "$xcresult_path" --format json
-          else
-            echo "No xcresult found."
-          fi
+          xcodebuild -exportArchive \
+            -archivePath build/MessageJudge.xcarchive \
+            -exportPath build/MessageJudge \
+            -exportOptionsPlist ExportOptions.plist || true
+
+      # 6️⃣ 上传构建产物
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: MessageJudge-IPA
+          path: ./MessageJudge/build/MessageJudge/*.ipa

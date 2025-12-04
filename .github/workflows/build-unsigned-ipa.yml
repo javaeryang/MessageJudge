@@ -8,69 +8,55 @@ on:
 
 jobs:
   build:
+    name: Build iOS App
     runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: ./MessageJudge  # 指向你的 Xcode 项目目录
 
     steps:
-      - name: Checkout repo
+      # 1. Checkout your repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Xcode
-        uses: actions/setup-xcode@v3
+      # 2. Set up Xcode
+      - name: Set up Xcode 16.4
+        uses: maxim-lobanov/setup-xcode@v3
         with:
           xcode-version: '16.4'
 
+      # 3. Install dependencies (CocoaPods example)
       - name: Install CocoaPods
         run: |
           sudo gem install cocoapods
-          pod install
+          pod install --project-directory=MessageJudge
 
-      - name: Clean DerivedData
-        run: rm -rf ~/Library/Developer/Xcode/DerivedData/*
-
-      - name: Build unsigned archive
+      # 4. Build the project (unsigned)
+      - name: Build unsigned IPA
         run: |
-          xcodebuild \
-            -workspace MessageJudge.xcworkspace \
+          cd MessageJudge
+          xcodebuild clean archive \
             -scheme MessageJudge \
+            -workspace MessageJudge.xcworkspace \
             -configuration Release \
-            -archivePath build/MessageJudge.xcarchive \
-            clean archive \
+            -archivePath $PWD/build/MessageJudge.xcarchive \
+            -allowProvisioningUpdates \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
             IPHONEOS_DEPLOYMENT_TARGET=12.0 \
             ONLY_ACTIVE_ARCH=NO
 
-      - name: Export unsigned IPA
+      # 5. Export unsigned IPA
+      - name: Export IPA
         run: |
+          cd MessageJudge
           xcodebuild -exportArchive \
-            -archivePath build/MessageJudge.xcarchive \
-            -exportPath build/unsigned-ipa \
-            -exportOptionsPlist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>compileBitcode</key>
-            <false/>
-            <key>method</key>
-            <string>development</string>
-            <key>signingStyle</key>
-            <string>none</string>
-            <key>stripSwiftSymbols</key>
-            <true/>
-            <key>thinning</key>
-            <string>&lt;none&gt;</string>
-          </dict>
-          </plist>
-          EOF
+            -archivePath $PWD/build/MessageJudge.xcarchive \
+            -exportPath $PWD/build/MessageJudge \
+            -exportOptionsPlist $PWD/ExportOptions.plist
 
-      - name: Upload unsigned IPA
+      # 6. Upload IPA as artifact
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: unsigned-ipa
-          path: build/unsigned-ipa/*.ipa
+          name: MessageJudge-unsigned
+          path: MessageJudge/build/MessageJudge/*.ipa

@@ -10,30 +10,24 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      # 1. Checkout 代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 安装 Ruby (CocoaPods 依赖)
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
 
-      # 3. 安装 CocoaPods
       - name: Install CocoaPods
         run: sudo gem install cocoapods
 
-      # 4. 安装 Pods (生成 xcworkspace)
       - name: Install Pods
         working-directory: ./MessageJudge
         run: pod install --repo-update
 
-      # 5. 选择 Xcode 版本
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_16.4.app
 
-      # 6. 构建项目（跳过签名）
       - name: Build Xcode project
         working-directory: ./MessageJudge
         run: |
@@ -50,7 +44,6 @@ jobs:
             IPHONEOS_DEPLOYMENT_TARGET=12.0 \
             ONLY_ACTIVE_ARCH=NO
 
-      # 7. 打包 IPA
       - name: Create IPA
         working-directory: ./MessageJudge
         run: |
@@ -58,7 +51,6 @@ jobs:
           cp -R build/MessageJudge.xcarchive/Products/Applications/MessageJudge.app Payload/
           zip -r MessageJudge-unsigned.ipa Payload
 
-      # 8. 上传 IPA
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:

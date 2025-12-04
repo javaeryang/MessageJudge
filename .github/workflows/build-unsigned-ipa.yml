@@ -19,12 +19,14 @@ jobs:
       - name: Install CocoaPods
         run: |
           sudo gem install cocoapods
+          cd MessageJudge
           pod install --repo-update
 
-      - name: Build Xcode project (skip signing)
+      - name: Build Xcode workspace (skip signing)
         run: |
+          cd MessageJudge
           xcodebuild \
-            -project MessageJudge.xcodeproj \
+            -workspace MessageJudge.xcworkspace \
             -scheme MessageJudge \
             -configuration Release \
             -archivePath build/MessageJudge.xcarchive \
@@ -33,10 +35,12 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            IPHONEOS_DEPLOYMENT_TARGET=12.0
+            IPHONEOS_DEPLOYMENT_TARGET=12.0 \
+            ONLY_ACTIVE_ARCH=NO
 
       - name: Create unsigned IPA
         run: |
+          cd MessageJudge
           mkdir -p Payload
           cp -R build/MessageJudge.xcarchive/Products/Applications/MessageJudge.app Payload/
           zip -r MessageJudge-unsigned.ipa Payload
@@ -45,4 +49,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MessageJudge-unsigned
-          path: MessageJudge-unsigned.ipa
+          path: MessageJudge/MessageJudge-unsigned.ipa

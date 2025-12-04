@@ -11,14 +11,14 @@ jobs:
     runs-on: macos-latest
     defaults:
       run:
-        working-directory: ./MessageJudge  # 你的 Xcode 项目目录
+        working-directory: ./MessageJudge  # 指向你的 Xcode 项目目录
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Set up Xcode
-        uses: maxim-lobanov/setup-xcode@v3
+        uses: actions/setup-xcode@v3
         with:
           xcode-version: '16.4'
 

@@ -17,7 +17,7 @@ jobs:
         run: |
           sudo gem install cocoapods
           cd MessageJudge
-          pod install --repo-update
+          pod install
 
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode.app

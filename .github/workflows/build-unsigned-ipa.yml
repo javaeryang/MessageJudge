@@ -77,7 +77,7 @@ jobs:
           cd MessageJudge
           EXPORT_PATH=build/IPA
           mkdir -p "$EXPORT_PATH"
-          cat > ExportOptions.plist <<EOF
+          cat <<EOF > ExportOptions.plist
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
 "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
